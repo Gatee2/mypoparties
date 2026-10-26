@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Пространство продуктивности и финансов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900 min-h-screen transition-colors duration-200" id="app-body">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none bg-stone-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2">
+    <span id="toast-text">Сохранено</span>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-stone-200">
+      <h3 class="text-base font-semibold text-stone-900 mb-2" id="modal-title">Подтверждение</h3>
+      <p class="text-sm text-stone-600 mb-5" id="modal-desc">Вы уверены, что хотите выполнить это действие?</p>
+      <div class="flex items-center justify-end gap-2">
+        <button id="modal-cancel" class="px-4 py-2 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-100 transition">Отмена</button>
+        <button id="modal-confirm" class="px-4 py-2 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header & Navigation -->
+  <header class="sticky top-0 z-30 bg-stone-50/90 backdrop-blur-md border-b border-stone-200/80">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-stone-900 text-white flex items-center justify-center font-bold text-sm tracking-tight shadow-xs">
+          PF
+        </div>
+        <div>
+          <h1 class="text-base font-semibold tracking-tight text-stone-900 leading-tight">Личный трекер</h1>
+          <p class="text-xs text-stone-500" id="current-date-label">Загрузка даты...</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center gap-1 bg-stone-200/70 p-1 rounded-xl overflow-x-auto max-w-full">
+        <button data-tab="overview" class="nav-tab px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition bg-white text-stone-900 shadow-xs whitespace-nowrap">
+          Обзор
+        </button>
+        <button data-tab="tasks" class="nav-tab px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition text-stone-600 hover:text-stone-900 whitespace-nowrap">
+          Дела
+        </button>
+        <button data-tab="habits" class="nav-tab px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition text-stone-600 hover:text-stone-900 whitespace-nowrap">
+          Активности недели
+        </button>
+        <button data-tab="piggy" class="nav-tab px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition text-stone-600 hover:text-stone-900 whitespace-nowrap">
+          Копилка
+        </button>
+      </nav>
+
+      <!-- Backup / Restore Actions -->
+      <div class="flex items-center gap-1.5">
+        <button id="export-btn" title="Скачать резервную копию JSON" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/></svg>
+          <span class="hidden sm:inline">Бэкап</span>
+        </button>
+        <label for="import-input" title="Загрузить резервную копию JSON" class="cursor-pointer px-2.5 py-1.5 rounded-lg text-xs font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 8l-4-4m0 0L8 8m4-4v12"/></svg>
+          <span class="hidden sm:inline">Импорт</span>
+        </label>
+        <input id="import-input" type="file" accept=".json" class="hidden" />
+        <button id="reset-btn" title="Сбросить к демо-данным" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-stone-500 hover:text-red-600 hover:bg-red-50 transition">
+          Сброс
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- ================= TAB 1: OVERVIEW (ОБЗОР И СТАТИСТИКА) ================= -->
+    <section id="tab-overview" class="tab-panel space-y-6">
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs font-medium text-stone-500 mb-2">
+            <span>Индекс продуктивности</span>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold" id="kpi-score-badge">Норма</span>
+          </div>
+          <div class="flex items-baseline gap-2 my-1">
+            <span class="text-3xl font-bold tracking-tight text-stone-900" id="kpi-productivity-score">0%</span>
+          </div>
+          <p class="text-xs text-stone-500" id="kpi-productivity-sub">На основе дел и целей недели</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs font-medium text-stone-500 mb-2">
+            <span>Выполнено задач</span>
+            <span class="text-stone-400">Всего</span>
+          </div>
+          <div class="flex items-baseline gap-2 my-1">
+            <span class="text-3xl font-bold tracking-tight text-stone-900" id="kpi-tasks-done">0 / 0</span>
+          </div>
+          <p class="text-xs text-stone-500" id="kpi-tasks-sub">0 активных в списке</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs font-medium text-stone-500 mb-2">
+            <span>Активности за неделю</span>
+            <span class="text-stone-400">Отметки</span>
+          </div>
+          <div class="flex items-baseline gap-2 my-1">
+            <span class="text-3xl font-bold tracking-tight text-stone-900" id="kpi-habits-week">0 / 0</span>
+          </div>
+          <p class="text-xs text-stone-500" id="kpi-habits-sub">Выполнение недельной нормы</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs font-medium text-stone-500 mb-2">
+            <span>В копилке (Чистыми)</span>
+            <span class="text-emerald-600 font-semibold" id="kpi-piggy-goal-pct">0% цели</span>
+          </div>
+          <div class="flex items-baseline gap-2 my-1">
+            <span class="text-3xl font-bold tracking-tight text-stone-900" id="kpi-piggy-balance">0 ₽</span>
+          </div>
+          <p class="text-xs text-stone-500" id="kpi-piggy-sub">Заработано всего: 0 ₽</p>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-semibold text-stone-900">Выполнение недельных активностей</h2>
+              <p class="text-xs text-stone-500">Сколько раз сделано за текущую неделю vs цель</p>
+            </div>
+          </div>
+          <div class="relative h-64">
+            <canvas id="overviewHabitsChart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-semibold text-stone-900">Динамика заработка и накоплений</h2>
+              <p class="text-xs text-stone-500">Последние поступления и общая сумма в копилке</p>
+            </div>
+          </div>
+          <div class="relative h-64">
+            <canvas id="overviewPiggyChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Access Columns -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Quick Pending Tasks -->
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-stone-900">Ближайшие дела</h3>
+              <button data-goto="tasks" class="goto-btn text-xs font-medium text-stone-500 hover:text-stone-900">Все дела →</button>
+            </div>
+            <div id="overview-tasks-list" class="space-y-2"></div>
+          </div>
+          <form id="quick-task-form" class="mt-4 pt-3 border-t border-stone-100 flex gap-2">
+            <input id="quick-task-input" type="text" placeholder="Быстро добавить задачу..." required class="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-stone-400" />
+            <button type="submit" class="px-3 py-2 bg-stone-900 text-white rounded-xl text-xs font-medium hover:bg-stone-800 transition">+</button>
+          </form>
+        </div>
+
+        <!-- Quick Habit Check-in -->
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-stone-900">Отметить сегодня</h3>
+              <button data-goto="habits" class="goto-btn text-xs font-medium text-stone-500 hover:text-stone-900">Таблица недели →</button>
+            </div>
+            <div id="overview-habits-list" class="space-y-2.5"></div>
+          </div>
+          <p class="mt-4 pt-3 border-t border-stone-100 text-xs text-stone-400">Нажмите «+1 сегодня», чтобы записать выполнение за текущий день недели.</p>
+        </div>
+
+        <!-- Quick Piggy Deposit -->
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-stone-900">Быстрое пополнение копилки</h3>
+              <button data-goto="piggy" class="goto-btn text-xs font-medium text-stone-500 hover:text-stone-900">В копилку →</button>
+            </div>
+            <div class="p-3.5 rounded-xl bg-stone-50 border border-stone-200/70 mb-3">
+              <div class="flex justify-between text-xs text-stone-500 mb-1">
+                <span id="overview-goal-title">Цель накоплений</span>
+                <span id="overview-goal-numbers">0 / 0 ₽</span>
+              </div>
+              <div class="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
+                <div id="overview-goal-bar" class="h-full bg-emerald-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+            <form id="quick-piggy-form" class="space-y-2.5">
+              <div class="grid grid-cols-2 gap-2">
+                <input id="quick-piggy-amount" type="number" step="any" min="1" placeholder="Сумма (₽)" required class="bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-stone-400" />
+                <select id="quick-piggy-category" class="bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-stone-400">
+                  <option value="Зарплата">Зарплата</option>
+                  <option value="Фриланс">Фриланс</option>
+                  <option value="Проект">Проект</option>
+                  <option value="Подарок / Кэшбэк">Подарок / Кэшбэк</option>
+                  <option value="Другое">Другое</option>
+                </select>
+              </div>
+              <div class="flex gap-2">
+                <input id="quick-piggy-note" type="text" placeholder="Комментарий (необязательно)" class="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-stone-400" />
+                <button type="submit" class="px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition">+ Доход</button>
+              </div>
+            </form>
+          </div>
+          <div id="overview-recent-tx" class="mt-3 pt-3 border-t border-stone-100 space-y-1.5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 2: TASKS (ДЕЛА) ================= -->
+    <section id="tab-tasks" class="tab-panel hidden space-y-6">
+      <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs">
+        <h2 class="text-base font-semibold text-stone-900 mb-1">Список дел</h2>
+        <p class="text-xs text-stone-500 mb-4">Записывайте задачи, распределяйте по приоритетам и отмечайте выполненные</p>
+
+        <form id="add-task-form" class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+          <input id="task-title-input" type="text" placeholder="Что нужно сделать?" required class="sm:col-span-5 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-stone-400" />
+          <select id="task-category-input" class="sm:col-span-3 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-stone-400">
+            <option value="Работа">Работа</option>
+            <option value="Личное">Личное</option>
+            <option value="Учеба">Учеба</option>
+            <option value="Здоровье">Здоровье</option>
+            <option value="Дом">Дом</option>
+          </select>
+          <select id="task-priority-input" class="sm:col-span-2 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-stone-400">
+            <option value="medium">Обычный</option>
+            <option value="high">Высокий</option>
+            <option value="low">Низкий</option>
+          </select>
+          <button type="submit" class="sm:col-span-2 bg-stone-900 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-stone-800 transition">
+            Добавить
+          </button>
+        </form>
+      </div>
+
+      <!-- Filters & Summary -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-1.5 bg-stone-200/70 p-1 rounded-xl">
+          <button data-task-filter="all" class="task-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-stone-900 shadow-xs transition">Все</button>
+          <button data-task-filter="active" class="task-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-stone-600 hover:text-stone-900 transition">Активные</button>
+          <button data-task-filter="completed" class="task-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-stone-600 hover:text-stone-900 transition">Выполненные</button>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <select id="task-category-filter" class="bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-xs text-stone-700 focus:outline-none">
+            <option value="all">Все категории</option>
+            <option value="Работа">Работа</option>
+            <option value="Личное">Личное</option>
+            <option value="Учеба">Учеба</option>
+            <option value="Здоровье">Здоровье</option>
+            <option value="Дом">Дом</option>
+          </select>
+          <button id="clear-completed-tasks" class="text-xs text-stone-500 hover:text-red-600 transition">Очистить выполненные</button>
+        </div>
+      </div>
+
+      <!-- Task List Container -->
+      <div id="tasks-container" class="space-y-2"></div>
+    </section>
+
+    <!-- ================= TAB 3: WEEKLY HABITS (СКОЛЬКО РАЗ В НЕДЕЛЮ) ================= -->
+    <section id="tab-habits" class="tab-panel hidden space-y-6">
+      <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-base font-semibold text-stone-900">Учет регулярных дел за неделю</h2>
+            <p class="text-xs text-stone-500">Записывайте, сколько раз в неделю вы выполняли каждое действие (клик по дню добавляет +1, правый клик или кнопка «−» убавляет)</p>
+          </div>
+          <button id="reset-week-btn" class="px-3 py-1.5 rounded-xl border border-stone-200 text-xs font-medium text-stone-600 hover:bg-stone-100 transition">
+            Начать новую неделю (обнулить дни)
+          </button>
+        </div>
+
+        <form id="add-habit-form" class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+          <input id="habit-name-input" type="text" placeholder="Например: Тренировка, Чтение, Английский..." required class="sm:col-span-6 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-stone-400" />
+          <div class="sm:col-span-4 flex items-center bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2">
+            <span class="text-xs text-stone-500 mr-2 whitespace-nowrap">Цель в неделю:</span>
+            <input id="habit-target-input" type="number" min="1" max="50" value="4" required class="w-full bg-transparent text-sm font-medium focus:outline-none text-right" />
+            <span class="text-xs text-stone-400 ml-1">раз</span>
+          </div>
+          <button type="submit" class="sm:col-span-2 bg-stone-900 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-stone-800 transition">
+            Добавить
+          </button>
+        </form>
+      </div>
+
+      <!-- Weekly Table -->
+      <div class="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse min-w-[680px]">
+            <thead>
+              <tr class="border-b border-stone-200/80 text-xs font-medium text-stone-500 bg-stone-50/70">
+                <th class="py-3.5 px-4">Занятие / Привычка</th>
+                <th class="py-3.5 px-2 text-center w-14">Пн</th>
+                <th class="py-3.5 px-2 text-center w-14">Вт</th>
+                <th class="py-3.5 px-2 text-center w-14">Ср</th>
+                <th class="py-3.5 px-2 text-center w-14">Чт</th>
+                <th class="py-3.5 px-2 text-center w-14">Пт</th>
+                <th class="py-3.5 px-2 text-center w-14">Сб</th>
+                <th class="py-3.5 px-2 text-center w-14">Вс</th>
+                <th class="py-3.5 px-4 text-right w-36">За неделю</th>
+                <th class="py-3.5 px-4 text-right w-28">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="habits-table-body" class="divide-y divide-stone-100 text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Weekly Habits Stats Summary -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs">
+          <span class="text-xs text-stone-500">Всего действий за неделю</span>
+          <p class="text-2xl font-bold text-stone-900 mt-1" id="habit-stat-total-actions">0 раз</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs">
+          <span class="text-xs text-stone-500">Самый активный день недели</span>
+          <p class="text-2xl font-bold text-stone-900 mt-1" id="habit-stat-best-day">—</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs">
+          <span class="text-xs text-stone-500">Целей закрыто полностью</span>
+          <p class="text-2xl font-bold text-stone-900 mt-1" id="habit-stat-goals-met">0 из 0</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 4: PIGGY BANK (КОПИЛКА И ДОХОДЫ) ================= -->
+    <section id="tab-piggy" class="tab-panel hidden space-y-6">
+      <!-- Top Summary & Goal Settings -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div>
+                <span class="text-xs font-medium text-stone-500 uppercase tracking-wider">Моя копилка</span>
+                <h2 class="text-2xl sm:text-3xl font-bold text-stone-900 mt-0.5" id="piggy-main-balance">0 ₽</h2>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-stone-500">Заработано за всё время</span>
+                <p class="text-lg font-semibold text-emerald-700" id="piggy-total-earned">+0 ₽</p>
+              </div>
+            </div>
+
+            <!-- Goal Progress Bar -->
+            <div class="p-4 rounded-xl bg-stone-50 border border-stone-200/70 mb-4">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-stone-900" id="piggy-goal-name-display">Финансовая подушка</span>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 font-medium" id="piggy-goal-pct-badge">0%</span>
+                </div>
+                <span class="text-xs font-medium text-stone-600" id="piggy-goal-remain-text">Осталось: 0 ₽</span>
+              </div>
+              <div class="w-full h-3 bg-stone-200 rounded-full overflow-hidden">
+                <div id="piggy-goal-progress-bar" class="h-full bg-emerald-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit Goal Inline Form -->
+          <form id="update-goal-form" class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t border-stone-100 items-center">
+            <span class="sm:col-span-3 text-xs font-medium text-stone-500">Изменить цель:</span>
+            <input id="goal-name-input" type="text" placeholder="Название цели" required class="sm:col-span-4 bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-stone-400" />
+            <input id="goal-target-input" type="number" min="1" step="any" placeholder="Целевая сумма (₽)" required class="sm:col-span-3 bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-stone-400" />
+            <button type="submit" class="sm:col-span-2 bg-stone-200 hover:bg-stone-300 text-stone-800 rounded-xl px-3 py-1.5 text-xs font-medium transition">
+              Сохранить
+            </button>
+          </form>
+        </div>
+
+        <!-- Add Transaction Form -->
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs">
+          <h3 class="text-sm font-semibold text-stone-900 mb-3">Записать доход или операцию</h3>
+          <form id="add-tx-form" class="space-y-3">
+            <div class="grid grid-cols-2 gap-1.5 bg-stone-100 p-1 rounded-xl">
+              <button type="button" data-tx-type="income" class="tx-type-btn py-1.5 rounded-lg text-xs font-medium bg-white text-emerald-700 shadow-xs transition">
+                + Заработано
+              </button>
+              <button type="button" data-tx-type="withdraw" class="tx-type-btn py-1.5 rounded-lg text-xs font-medium text-stone-600 hover:text-stone-900 transition">
+                − Изъято / Трата
+              </button>
+            </div>
+            <input type="hidden" id="tx-type-input" value="income" />
+
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">Сумма (₽)</label>
+              <input id="tx-amount-input" type="number" min="1" step="any" placeholder="Например: 15000" required class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-stone-400" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-stone-500 mb-1">Источник / Категория</label>
+                <select id="tx-category-input" class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-stone-400">
+                  <option value="Зарплата">Зарплата</option>
+                  <option value="Фриланс">Фриланс</option>
+                  <option value="Проект">Проект</option>
+                  <option value="Инвестиции">Инвестиции</option>
+                  <option value="Подарок / Кэшбэк">Подарок / Кэшбэк</option>
+                  <option value="Покупка / Расход">Покупка / Расход</option>
+                  <option value="Другое">Другое</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-stone-500 mb-1">Дата</label>
+                <input id="tx-date-input" type="date" required class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-stone-400" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">Заметка</label>
+              <input id="tx-note-input" type="text" placeholder="За какой заказ или проект..." class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-stone-400" />
+            </div>
+
+            <button type="submit" class="w-full bg-stone-900 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-stone-800 transition">
+              Добавить запись
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Financial Statistics Cards & Charts -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs">
+          <span class="text-xs text-stone-500">Заработано за текущий месяц</span>
+          <p class="text-2xl font-bold text-stone-900 mt-1" id="piggy-stat-month">0 ₽</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs">
+          <span class="text-xs text-stone-500">Среднее пополнение</span>
+          <p class="text-2xl font-bold text-stone-900 mt-1" id="piggy-stat-avg">0 ₽</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs">
+          <span class="text-xs text-stone-500">Главный источник дохода</span>
+          <p class="text-2xl font-bold text-stone-900 mt-1" id="piggy-stat-top-cat">—</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs">
+          <h3 class="text-sm font-semibold text-stone-900 mb-1">Статистика по источникам дохода</h3>
+          <p class="text-xs text-stone-500 mb-4">Распределение всех заработанных денег по категориям</p>
+          <div class="relative h-64">
+            <canvas id="piggyCategoryChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Transactions History -->
+        <div class="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-semibold text-stone-900">История операций</h3>
+              <p class="text-xs text-stone-500">Все пополнения и изъятия из копилки</p>
+            </div>
+            <span class="text-xs text-stone-400" id="tx-count-label">0 записей</span>
+          </div>
+          <div id="tx-history-list" class="space-y-2 overflow-y-auto max-h-64 pr-1 custom-scrollbar"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'minimal_personal_tracker_v1';
+    const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+    function getTodayISO() {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getCurrentWeekdayIndex() {
+      const day = new Date().getDay();
+      return day === 0 ? 6 : day - 1; // 0 = Пн ... 6 = Вс
+    }
+
+    function getDefaultState() {
+      const today = getTodayISO();
+      return {
+        tasks: [
+          { id: 't1', title: 'Составить план ключевых задач на неделю', category: 'Работа', priority: 'high', completed: true, createdAt: today },
+          { id: 't2', title: 'Разобрать рабочие заметки и документы', category: 'Работа', priority: 'medium', completed: false, createdAt: today },
+          { id: 't3', title: 'Записаться на тренировку / разминку', category: 'Здоровье', priority: 'medium', completed: false, createdAt: today },
+          { id: 't4', title: 'Прочитать 30 страниц книги', category: 'Учеба', priority: 'low', completed: true, createdAt: today }
+        ],
+        habits: [
+          { id: 'h1', name: 'Спорт / Тренировка', targetPerWeek: 3, days: [1, 0, 1, 0, 1, 0, 0] },
+          { id: 'h2', name: 'Чтение (от 30 мин)', targetPerWeek: 5, days: [1, 1, 1, 1, 0, 0, 0] },
+          { id: 'h3', name: 'Фокус-сессия без телефона', targetPerWeek: 7, days: [2, 1, 1, 1, 1, 0, 0] },
+          { id: 'h4', name: 'Английский язык', targetPerWeek: 4, days: [0, 1, 0, 1, 1, 0, 0] }
+        ],
+        piggy: {
+          goalName: 'Финансовый резерв и техника',
+          goalTarget: 150000,
+          transactions: [
+            { id: 'tx1', type: 'income', amount: 45000, category: 'Зарплата', note: 'Аванс за месяц', date: '2026-10-10' },
+            { id: 'tx2', type: 'income', amount: 18500, category: 'Фриланс', note: 'Дизайн и верстка лендинга', date: '2026-10-16' },
+            { id: 'tx3', type: 'withdraw', amount: 4500, category: 'Покупка / Расход', note: 'Подписки и рабочие сервисы', date: '2026-10-19' },
+            { id: 'tx4', type: 'income', amount: 24000, category: 'Проект', note: 'Закрытие этапа разработки', date: '2026-10-24' }
+          ]
+        }
+      };
+    }
+
+    let state = loadState();
+    let currentTaskFilter = 'all';
+    let currentCategoryFilter = 'all';
+
+    let overviewHabitsChartInstance = null;
+    let overviewPiggyChartInstance = null;
+    let piggyCategoryChartInstance = null;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.tasks) && Array.isArray(parsed.habits) && parsed.piggy) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        // Fallback if localStorage is blocked
+      }
+      return getDefaultState();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        // Ignore storage errors in sandboxed frames
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const text = document.getElementById('toast-text');
+      text.textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2200);
+    }
+
+    function openConfirmModal(title, desc, onConfirm) {
+      const modal = document.getElementById('confirm-modal');
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-desc').textContent = desc;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      const confirmBtn = document.getElementById('modal-confirm');
+      const cancelBtn = document.getElementById('modal-cancel');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        confirmBtn.onclick = null;
+        cancelBtn.onclick = null;
+      };
+
+      confirmBtn.onclick = () => {
+        cleanup();
+        onConfirm();
+      };
+      cancelBtn.onclick = cleanup;
+    }
+
+    function formatMoney(num) {
+      return new Intl.NumberFormat('ru-RU').format(Math.round(num)) + ' ₽';
+    }
+
+    function calculatePiggyMetrics() {
+      let totalEarned = 0;
+      let totalWithdrawn = 0;
+      let currentMonthEarned = 0;
+      const now = new Date();
+      const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      const byCategory = {};
+      let incomeCount = 0;
+
+      state.piggy.transactions.forEach(tx => {
+        const amt = Number(tx.amount) || 0;
+        if (tx.type === 'income') {
+          totalEarned += amt;
+          incomeCount++;
+          if (tx.date && tx.date.startsWith(currentYM)) {
+            currentMonthEarned += amt;
+          }
+          byCategory[tx.category] = (byCategory[tx.category] || 0) + amt;
+        } else {
+          totalWithdrawn += amt;
+        }
+      });
+
+      const balance = Math.max(0, totalEarned - totalWithdrawn);
+      const avgIncome = incomeCount > 0 ? totalEarned / incomeCount : 0;
+
+      let topCategory = '—';
+      let topVal = 0;
+      Object.entries(byCategory).forEach(([cat, val]) => {
+        if (val > topVal) {
+          topVal = val;
+          topCategory = cat;
+        }
+      });
+
+      return {
+        totalEarned,
+        totalWithdrawn,
+        balance,
+        currentMonthEarned,
+        avgIncome,
+        topCategory,
+        byCategory
+      };
+    }
+
+    function calculateProductivityMetrics() {
+      const totalTasks = state.tasks.length;
+      const doneTasks = state.tasks.filter(t => t.completed).length;
+      const taskRatio = totalTasks > 0 ? doneTasks / totalTasks : 1;
+
+      let totalHabitTarget = 0;
+      let totalHabitDoneCapped = 0;
+      let totalHabitRaw = 0;
+      let goalsMet = 0;
+
+      state.habits.forEach(h => {
+        const sum = h.days.reduce((a, b) => a + b, 0);
+        totalHabitRaw += sum;
+        totalHabitTarget += h.targetPerWeek;
+        totalHabitDoneCapped += Math.min(sum, h.targetPerWeek);
+        if (sum >= h.targetPerWeek) goalsMet++;
+      });
+
+      const habitRatio = totalHabitTarget > 0 ? totalHabitDoneCapped / totalHabitTarget : 1;
+      const score = Math.round((taskRatio * 0.5 + habitRatio * 0.5) * 100);
+
+      return {
+        totalTasks,
+        doneTasks,
+        totalHabitTarget,
+        totalHabitRaw,
+        goalsMet,
+        score
+      };
+    }
+
+    function renderAll() {
+      // Date header
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+      document.getElementById('current-date-label').textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+
+      renderOverview();
+      renderTasks();
+      renderHabits();
+      renderPiggy();
+      updateCharts();
+    }
+
+    function renderOverview() {
+      const prod = calculateProductivityMetrics();
+      const piggy = calculatePiggyMetrics();
+
+      document.getElementById('kpi-productivity-score').textContent = `${prod.score}%`;
+      const badge = document.getElementById('kpi-score-badge');
+      if (prod.score >= 80) {
+        badge.textContent = 'Отлично';
+        badge.className = 'px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold';
+      } else if (prod.score >= 50) {
+        badge.textContent = 'Хороший темп';
+        badge.className = 'px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold';
+      } else {
+        badge.textContent = 'В процессе';
+        badge.className = 'px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-semibold';
+      }
+
+      document.getElementById('kpi-tasks-done').textContent = `${prod.doneTasks} / ${prod.totalTasks}`;
+      const activeCount = prod.totalTasks - prod.doneTasks;
+      document.getElementById('kpi-tasks-sub').textContent = `${activeCount} активных в списке`;
+
+      document.getElementById('kpi-habits-week').textContent = `${prod.totalHabitRaw} / ${prod.totalHabitTarget}`;
+      document.getElementById('kpi-habits-sub').textContent = `Закрыто целей: ${prod.goalsMet} из ${state.habits.length}`;
+
+      const goalTarget = state.piggy.goalTarget || 1;
+      const goalPct = Math.min(100, Math.round((piggy.balance / goalTarget) * 100));
+      document.getElementById('kpi-piggy-balance').textContent = formatMoney(piggy.balance);
+      document.getElementById('kpi-piggy-goal-pct').textContent = `${goalPct}% цели`;
+      document.getElementById('kpi-piggy-sub').textContent = `Заработано всего: ${formatMoney(piggy.totalEarned)}`;
+
+      // Overview Quick Tasks
+      const tasksListEl = document.getElementById('overview-tasks-list');
+      tasksListEl.innerHTML = '';
+      const pendingTasks = state.tasks.filter(t => !t.completed).slice(0, 4);
+      if (pendingTasks.length === 0) {
+        tasksListEl.innerHTML = `<p class="text-xs text-stone-400 py-3">Все задачи выполнены! Добавьте новую ниже.</p>`;
+      } else {
+        pendingTasks.forEach(t => {
+          const item = document.createElement('div');
+          item.className = 'flex items-center justify-between gap-2 p-2 rounded-xl hover:bg-stone-50 border border-transparent hover:border-stone-200/60 transition';
+          item.innerHTML = `
+            <label class="flex items-center gap-2.5 text-xs text-stone-800 cursor-pointer flex-1 truncate">
+              <input type="checkbox" data-toggle-task="${t.id}" class="rounded border-stone-300 text-stone-900 focus:ring-0" />
+              <span class="truncate">${escapeHtml(t.title)}</span>
+            </label>
+            <span class="text-[10px] px-2 py-0.5 rounded-md bg-stone-100 text-stone-500 shrink-0">${escapeHtml(t.category)}</span>
+          `;
+          tasksListEl.appendChild(item);
+        });
+      }
+
+      // Overview Quick Habits
+      const habitsListEl = document.getElementById('overview-habits-list');
+      habitsListEl.innerHTML = '';
+      const todayIdx = getCurrentWeekdayIndex();
+      if (state.habits.length === 0) {
+        habitsListEl.innerHTML = `<p class="text-xs text-stone-400 py-3">Нет добавленных активностей.</p>`;
+      } else {
+        state.habits.slice(0, 4).forEach(h => {
+          const weekSum = h.days.reduce((a, b) => a + b, 0);
+          const pct = Math.min(100, Math.round((weekSum / h.targetPerWeek) * 100));
+          const row = document.createElement('div');
+          row.className = 'p-2.5 rounded-xl bg-stone-50/70 border border-stone-200/60 flex items-center justify-between gap-2';
+          row.innerHTML = `
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="font-medium text-stone-800 truncate">${escapeHtml(h.name)}</span>
+                <span class="text-stone-500 ml-2 shrink-0">${weekSum} / ${h.targetPerWeek} раз</span>
+              </div>
+              <div class="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden">
+                <div class="h-full bg-stone-900 rounded-full transition-all" style="width: ${pct}%"></div>
+              </div>
+            </div>
+            <button data-quick-habit="${h.id}" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-white border border-stone-200 hover:border-stone-400 text-xs font-medium text-stone-800 transition shadow-2xs">
+              +1 (${DAY_NAMES[todayIdx]})
+            </button>
+          `;
+          habitsListEl.appendChild(row);
+        });
+      }
+
+      // Overview Piggy Goal & Recent
+      document.getElementById('overview-goal-title').textContent = state.piggy.goalName;
+      document.getElementById('overview-goal-numbers').textContent = `${formatMoney(piggy.balance)} / ${formatMoney(state.piggy.goalTarget)}`;
+      document.getElementById('overview-goal-bar').style.width = `${goalPct}%`;
+
+      const recentTxEl = document.getElementById('overview-recent-tx');
+      recentTxEl.innerHTML = '';
+      const recentTx = [...state.piggy.transactions].slice(-2).reverse();
+      recentTx.forEach(tx => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between text-xs';
+        const isInc = tx.type === 'income';
+        div.innerHTML = `
+          <span class="text-stone-600 truncate">${escapeHtml(tx.category)}${tx.note ? ' · ' + escapeHtml(tx.note) : ''}</span>
+          <span class="font-medium shrink-0 ${isInc ? 'text-emerald-700' : 'text-stone-500'}">${isInc ? '+' : '−'}${formatMoney(tx.amount)}</span>
+        `;
+        recentTxEl.appendChild(div);
+      });
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('tasks-container');
+      container.innerHTML = '';
+
+      const filtered = state.tasks.filter(t => {
+        if (currentTaskFilter === 'active' && t.completed) return false;
+        if (currentTaskFilter === 'completed' && !t.completed) return false;
+        if (currentCategoryFilter !== 'all' && t.category !== currentCategoryFilter) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl p-8 text-center border border-stone-200/80">
+            <p class="text-sm text-stone-500">Задач по выбранному фильтру пока нет.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      filtered.sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        return (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1);
+      });
+
+      filtered.forEach(task => {
+        const prioBadge = task.priority === 'high'
+          ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-red-50 text-red-700 font-medium">Высокий</span>`
+          : task.priority === 'low'
+            ? `<span class="text-[11px] px-2 py-0.5 rounded-md bg-stone-100 text-stone-500">Низкий</span>`
+            : `<span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-700">Обычный</span>`;
+
+        const row = document.createElement('div');
+        row.className = `bg-white rounded-2xl px-4 py-3.5 border border-stone-200/80 shadow-2xs flex items-center justify-between gap-3 transition ${task.completed ? 'opacity-60' : ''}`;
+        row.innerHTML = `
+          <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+            <input type="checkbox" data-toggle-task="${task.id}" ${task.completed ? 'checked' : ''} class="w-4 h-4 rounded border-stone-300 text-stone-900 focus:ring-0" />
+            <span class="text-sm font-medium ${task.completed ? 'line-through text-stone-400' : 'text-stone-900'} truncate">${escapeHtml(task.title)}</span>
+          </label>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-xs px-2.5 py-0.5 rounded-lg bg-stone-100 text-stone-600">${escapeHtml(task.category)}</span>
+            ${prioBadge}
+            <button data-delete-task="${task.id}" title="Удалить задачу" class="p-1.5 text-stone-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function renderHabits() {
+      const tbody = document.getElementById('habits-table-body');
+      tbody.innerHTML = '';
+      const todayIdx = getCurrentWeekdayIndex();
+
+      if (state.habits.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="10" class="py-8 text-center text-sm text-stone-500">Добавьте регулярное занятие выше, чтобы отслеживать сколько раз в неделю вы его делаете.</td>
+          </tr>
+        `;
+      } else {
+        state.habits.forEach(habit => {
+          const weekSum = habit.days.reduce((a, b) => a + b, 0);
+          const pct = Math.min(100, Math.round((weekSum / habit.targetPerWeek) * 100));
+          const isMet = weekSum >= habit.targetPerWeek;
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-stone-50/80 transition';
+
+          let daysHtml = '';
+          habit.days.forEach((count, dayIdx) => {
+            const isToday = dayIdx === todayIdx;
+            const activeClass = count > 0
+              ? 'bg-stone-900 text-white font-semibold shadow-2xs'
+              : isToday
+                ? 'bg-stone-100 text-stone-700 border border-stone-300'
+                : 'bg-stone-100/70 text-stone-400 hover:bg-stone-200/70';
+
+            daysHtml += `
+              <td class="py-3 px-1.5 text-center">
+                <button
+                  type="button"
+                  data-habit-day="${habit.id}:${dayIdx}"
+                  title="ЛКМ: +1 раз, ПКМ: -1 раз"
+                  class="w-9 h-9 rounded-xl text-xs transition inline-flex items-center justify-center select-none ${activeClass}"
+                >
+                  ${count > 0 ? count : '·'}
+                </button>
+              </td>
+            `;
+          });
+
+          tr.innerHTML = `
+            <td class="py-3.5 px-4">
+              <div class="font-medium text-stone-900">${escapeHtml(habit.name)}</div>
+              <div class="text-xs text-stone-400">Цель: ${habit.targetPerWeek} раз в неделю</div>
+            </td>
+            ${daysHtml}
+            <td class="py-3.5 px-4 text-right">
+              <div class="flex items-center justify-end gap-2 mb-1">
+                <span class="text-xs font-semibold ${isMet ? 'text-emerald-700' : 'text-stone-800'}">${weekSum} / ${habit.targetPerWeek}</span>
+                <span class="text-[11px] text-stone-400">(${pct}%)</span>
+              </div>
+              <div class="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden">
+                <div class="h-full ${isMet ? 'bg-emerald-600' : 'bg-stone-800'} rounded-full transition-all" style="width: ${pct}%"></div>
+              </div>
+            </td>
+            <td class="py-3.5 px-4 text-right">
+              <div class="inline-flex items-center gap-1">
+                <button type="button" data-habit-dec-today="${habit.id}" title="Убавить сегодня (-1)" class="w-7 h-7 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 text-xs font-bold">−</button>
+                <button type="button" data-habit-inc-today="${habit.id}" title="Добавить сегодня (+1)" class="w-7 h-7 rounded-lg bg-stone-900 text-white hover:bg-stone-800 text-xs font-bold">+</button>
+                <button type="button" data-delete-habit="${habit.id}" title="Удалить" class="p-1.5 text-stone-400 hover:text-red-600 rounded-lg">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Summary stats for habits
+      const dayTotals = [0, 0, 0, 0, 0, 0, 0];
+      let totalActions = 0;
+      let goalsMet = 0;
+
+      state.habits.forEach(h => {
+        const sum = h.days.reduce((a, b) => a + b, 0);
+        totalActions += sum;
+        if (sum >= h.targetPerWeek) goalsMet++;
+        h.days.forEach((c, idx) => {
+          dayTotals[idx] += c;
+        });
+      });
+
+      let bestDayIdx = -1;
+      let bestDayMax = 0;
+      dayTotals.forEach((val, idx) => {
+        if (val > bestDayMax) {
+          bestDayMax = val;
+          bestDayIdx = idx;
+        }
+      });
+
+      document.getElementById('habit-stat-total-actions').textContent = `${totalActions} раз`;
+      document.getElementById('habit-stat-best-day').textContent = bestDayIdx >= 0 ? `${DAY_NAMES[bestDayIdx]} (${bestDayMax} раз)` : '—';
+      document.getElementById('habit-stat-goals-met').textContent = `${goalsMet} из ${state.habits.length}`;
+    }
+
+    function renderPiggy() {
+      const metrics = calculatePiggyMetrics();
+      const target = state.piggy.goalTarget || 1;
+      const pct = Math.min(100, Math.round((metrics.balance / target) * 100));
+      const remain = Math.max(0, target - metrics.balance);
+
+      document.getElementById('piggy-main-balance').textContent = formatMoney(metrics.balance);
+      document.getElementById('piggy-total-earned').textContent = `+${formatMoney(metrics.totalEarned)}`;
+      document.getElementById('piggy-goal-name-display').textContent = state.piggy.goalName;
+      document.getElementById('piggy-goal-pct-badge').textContent = `${pct}%`;
+      document.getElementById('piggy-goal-remain-text').textContent = remain > 0 ? `Осталось накопить: ${formatMoney(remain)}` : 'Цель достигнута!';
+      document.getElementById('piggy-goal-progress-bar').style.width = `${pct}%`;
+
+      document.getElementById('goal-name-input').value = state.piggy.goalName;
+      document.getElementById('goal-target-input').value = state.piggy.goalTarget;
+
+      document.getElementById('piggy-stat-month').textContent = formatMoney(metrics.currentMonthEarned);
+      document.getElementById('piggy-stat-avg').textContent = formatMoney(metrics.avgIncome);
+      document.getElementById('piggy-stat-top-cat').textContent = metrics.topCategory;
+
+      const listEl = document.getElementById('tx-history-list');
+      listEl.innerHTML = '';
+      const txs = [...state.piggy.transactions].reverse();
+      document.getElementById('tx-count-label').textContent = `${txs.length} записей`;
+
+      if (txs.length === 0) {
+        listEl.innerHTML = `<p class="text-xs text-stone-400 py-6 text-center">Записей пока нет. Добавьте первое пополнение справа.</p>`;
+      } else {
+        txs.forEach(tx => {
+          const isInc = tx.type === 'income';
+          const item = document.createElement('div');
+          item.className = 'flex items-center justify-between gap-3 p-3 rounded-xl bg-stone-50/80 border border-stone-200/60';
+          item.innerHTML = `
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-stone-900">${escapeHtml(tx.category)}</span>
+                <span class="text-[11px] text-stone-400">${escapeHtml(tx.date || '')}</span>
+              </div>
+              <p class="text-xs text-stone-500 truncate mt-0.5">${tx.note ? escapeHtml(tx.note) : 'Без комментария'}</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-sm font-semibold ${isInc ? 'text-emerald-700' : 'text-stone-600'}">
+                ${isInc ? '+' : '−'}${formatMoney(tx.amount)}
+              </span>
+              <button data-delete-tx="${tx.id}" title="Удалить запись" class="p-1 text-stone-400 hover:text-red-600 rounded-lg">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          `;
+          listEl.appendChild(item);
+        });
+      }
+    }
+
+    function updateCharts() {
+      if (typeof Chart === 'undefined') return;
+
+      // 1. Overview Habits Bar Chart
+      const habitsCtx = document.getElementById('overviewHabitsChart');
+      if (habitsCtx) {
+        const labels = state.habits.map(h => h.name);
+        const doneData = state.habits.map(h => h.days.reduce((a, b) => a + b, 0));
+        const targetData = state.habits.map(h => h.targetPerWeek);
+
+        if (overviewHabitsChartInstance) overviewHabitsChartInstance.destroy();
+        overviewHabitsChartInstance = new Chart(habitsCtx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Сделано за неделю',
+                data: doneData,
+                backgroundColor: '#1c1917',
+                borderRadius: 6
+              },
+              {
+                label: 'Недельная цель',
+                data: targetData,
+                backgroundColor: '#e7e5e4',
+                borderRadius: 6
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+            },
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+          }
+        });
+      }
+
+      // 2. Overview Cumulative Balance Line Chart
+      const piggyCtx = document.getElementById('overviewPiggyChart');
+      if (piggyCtx) {
+        let running = 0;
+        const labels = [];
+        const points = [];
+        state.piggy.transactions.forEach(tx => {
+          running += tx.type === 'income' ? Number(tx.amount) : -Number(tx.amount);
+          labels.push(tx.date ? tx.date.slice(5) : '');
+          points.push(Math.max(0, running));
+        });
+
+        if (overviewPiggyChartInstance) overviewPiggyChartInstance.destroy();
+        overviewPiggyChartInstance = new Chart(piggyCtx, {
+          type: 'line',
+          data: {
+            labels: labels.length ? labels : ['Старт'],
+            datasets: [{
+              label: 'Баланс копилки (₽)',
+              data: points.length ? points : [0],
+              borderColor: '#059669',
+              backgroundColor: 'rgba(5, 150, 105, 0.1)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+            },
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }
+        });
+      }
+
+      // 3. Piggy Category Doughnut Chart
+      const catCtx = document.getElementById('piggyCategoryChart');
+      if (catCtx) {
+        const metrics = calculatePiggyMetrics();
+        const catLabels = Object.keys(metrics.byCategory);
+        const catValues = Object.values(metrics.byCategory);
+
+        if (piggyCategoryChartInstance) piggyCategoryChartInstance.destroy();
+        piggyCategoryChartInstance = new Chart(catCtx, {
+          type: 'doughnut',
+          data: {
+            labels: catLabels.length ? catLabels : ['Нет доходов'],
+            datasets: [{
+              data: catValues.length ? catValues : [1],
+              backgroundColor: catValues.length
+                ? ['#1c1917', '#059669', '#d97706', '#4f46e5', '#78716c', '#0d9488']
+                : ['#e7e5e4'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+            }
+          }
+        });
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.add('hidden');
+      });
+      const target = document.getElementById(`tab-${tabId}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        if (btn.dataset.tab === tabId) {
+          btn.className = 'nav-tab px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition bg-white text-stone-900 shadow-xs whitespace-nowrap';
+        } else {
+          btn.className = 'nav-tab px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition text-stone-600 hover:text-stone-900 whitespace-nowrap';
+        }
+      });
+
+      updateCharts();
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Event Listeners Initialization
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('tx-date-input').value = getTodayISO();
+
+      // Navigation tabs
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      document.querySelectorAll('.goto-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.goto));
+      });
+
+      // Quick Task Form
+      document.getElementById('quick-task-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const input = document.getElementById('quick-task-input');
+        const title = input.value.trim();
+        if (!title) return;
+        state.tasks.unshift({
+          id: 't_' + Date.now(),
+          title,
+          category: 'Личное',
+          priority: 'medium',
+          completed: false,
+          createdAt: getTodayISO()
+        });
+        input.value = '';
+        saveState();
+        renderAll();
+        showToast('Задача добавлена');
+      });
+
+      // Full Add Task Form
+      document.getElementById('add-task-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const titleInput = document.getElementById('task-title-input');
+        const categoryInput = document.getElementById('task-category-input');
+        const priorityInput = document.getElementById('task-priority-input');
+        const title = titleInput.value.trim();
+        if (!title) return;
+
+        state.tasks.unshift({
+          id: 't_' + Date.now(),
+          title,
+          category: categoryInput.value,
+          priority: priorityInput.value,
+          completed: false,
+          createdAt: getTodayISO()
+        });
+        titleInput.value = '';
+        saveState();
+        renderAll();
+        showToast('Дело записано');
+      });
+
+      // Task filter buttons
+      document.querySelectorAll('.task-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentTaskFilter = btn.dataset.taskFilter;
+          document.querySelectorAll('.task-filter-btn').forEach(b => {
+            b.className = b === btn
+              ? 'task-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-stone-900 shadow-xs transition'
+              : 'task-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-stone-600 hover:text-stone-900 transition';
+          });
+          renderTasks();
+        });
+      });
+
+      document.getElementById('task-category-filter').addEventListener('change', e => {
+        currentCategoryFilter = e.target.value;
+        renderTasks();
+      });
+
+      document.getElementById('clear-completed-tasks').addEventListener('click', () => {
+        const completedCount = state.tasks.filter(t => t.completed).length;
+        if (completedCount === 0) {
+          showToast('Нет выполненных задач для удаления');
+          return;
+        }
+        state.tasks = state.tasks.filter(t => !t.completed);
+        saveState();
+        renderAll();
+        showToast('Выполненные задачи очищены');
+      });
+
+      // Add Habit Form
+      document.getElementById('add-habit-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const nameInput = document.getElementById('habit-name-input');
+        const targetInput = document.getElementById('habit-target-input');
+        const name = nameInput.value.trim();
+        const targetPerWeek = Math.max(1, parseInt(targetInput.value, 10) || 4);
+        if (!name) return;
+
+        state.habits.push({
+          id: 'h_' + Date.now(),
+          name,
+          targetPerWeek,
+          days: [0, 0, 0, 0, 0, 0, 0]
+        });
+        nameInput.value = '';
+        saveState();
+        renderAll();
+        showToast('Активность добавлена');
+      });
+
+      // Reset week counters
+      document.getElementById('reset-week-btn').addEventListener('click', () => {
+        openConfirmModal(
+          'Начать новую неделю?',
+          'Все счетчики по дням недели будут обнулены для нового цикла, а сами занятия сохранятся.',
+          () => {
+            state.habits.forEach(h => {
+              h.days = [0, 0, 0, 0, 0, 0, 0];
+            });
+            saveState();
+            renderAll();
+            showToast('Неделя обнулена');
+          }
+        );
+      });
+
+      // Quick Piggy Form
+      document.getElementById('quick-piggy-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const amtInput = document.getElementById('quick-piggy-amount');
+        const catInput = document.getElementById('quick-piggy-category');
+        const noteInput = document.getElementById('quick-piggy-note');
+        const amount = parseFloat(amtInput.value);
+        if (!amount || amount <= 0) return;
+
+        state.piggy.transactions.push({
+          id: 'tx_' + Date.now(),
+          type: 'income',
+          amount,
+          category: catInput.value,
+          note: noteInput.value.trim(),
+          date: getTodayISO()
+        });
+        amtInput.value = '';
+        noteInput.value = '';
+        saveState();
+        renderAll();
+        showToast('Копилка пополнена');
+      });
+
+      // Transaction Type Switcher
+      document.querySelectorAll('.tx-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const t = btn.dataset.txType;
+          document.getElementById('tx-type-input').value = t;
+          document.querySelectorAll('.tx-type-btn').forEach(b => {
+            if (b === btn) {
+              b.className = t === 'income'
+                ? 'tx-type-btn py-1.5 rounded-lg text-xs font-medium bg-white text-emerald-700 shadow-xs transition'
+                : 'tx-type-btn py-1.5 rounded-lg text-xs font-medium bg-white text-red-600 shadow-xs transition';
+            } else {
+              b.className = 'tx-type-btn py-1.5 rounded-lg text-xs font-medium text-stone-600 hover:text-stone-900 transition';
+            }
+          });
+        });
+      });
+
+      // Add Transaction Form
+      document.getElementById('add-tx-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const type = document.getElementById('tx-type-input').value;
+        const amount = parseFloat(document.getElementById('tx-amount-input').value);
+        const category = document.getElementById('tx-category-input').value;
+        const date = document.getElementById('tx-date-input').value || getTodayISO();
+        const note = document.getElementById('tx-note-input').value.trim();
+        if (!amount || amount <= 0) return;
+
+        state.piggy.transactions.push({
+          id: 'tx_' + Date.now(),
+          type,
+          amount,
+          category,
+          note,
+          date
+        });
+        document.getElementById('tx-amount-input').value = '';
+        document.getElementById('tx-note-input').value = '';
+        saveState();
+        renderAll();
+        showToast(type === 'income' ? 'Доход добавлен в копилку' : 'Операция записана');
+      });
+
+      // Update Piggy Goal Form
+      document.getElementById('update-goal-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const name = document.getElementById('goal-name-input').value.trim();
+        const target = parseFloat(document.getElementById('goal-target-input').value);
+        if (!name || !target || target <= 0) return;
+        state.piggy.goalName = name;
+        state.piggy.goalTarget = target;
+        saveState();
+        renderAll();
+        showToast('Цель копилки обновлена');
+      });
+
+      // Delegated Click & ContextMenu Handlers
+      document.body.addEventListener('click', e => {
+        const toggleTaskEl = e.target.closest('[data-toggle-task]');
+        if (toggleTaskEl) {
+          const id = toggleTaskEl.dataset.toggleTask;
+          const task = state.tasks.find(t => t.id === id);
+          if (task) {
+            task.completed = !task.completed;
+            saveState();
+            renderAll();
+          }
+          return;
+        }
+
+        const delTaskEl = e.target.closest('[data-delete-task]');
+        if (delTaskEl) {
+          const id = delTaskEl.dataset.deleteTask;
+          state.tasks = state.tasks.filter(t => t.id !== id);
+          saveState();
+          renderAll();
+          showToast('Задача удалена');
+          return;
+        }
+
+        const quickHabitEl = e.target.closest('[data-quick-habit]');
+        if (quickHabitEl) {
+          const id = quickHabitEl.dataset.quickHabit;
+          const habit = state.habits.find(h => h.id === id);
+          if (habit) {
+            const todayIdx = getCurrentWeekdayIndex();
+            habit.days[todayIdx] = (habit.days[todayIdx] || 0) + 1;
+            saveState();
+            renderAll();
+            showToast(`+1: ${habit.name}`);
+          }
+          return;
+        }
+
+        const habitDayEl = e.target.closest('[data-habit-day]');
+        if (habitDayEl) {
+          const [id, dayStr] = habitDayEl.dataset.habitDay.split(':');
+          const dayIdx = parseInt(dayStr, 10);
+          const habit = state.habits.find(h => h.id === id);
+          if (habit) {
+            habit.days[dayIdx] = (habit.days[dayIdx] || 0) + 1;
+            saveState();
+            renderAll();
+          }
+          return;
+        }
+
+        const incTodayEl = e.target.closest('[data-habit-inc-today]');
+        if (incTodayEl) {
+          const id = incTodayEl.dataset.habitIncToday;
+          const habit = state.habits.find(h => h.id === id);
+          if (habit) {
+            const idx = getCurrentWeekdayIndex();
+            habit.days[idx] = (habit.days[idx] || 0) + 1;
+            saveState();
+            renderAll();
+          }
+          return;
+        }
+
+        const decTodayEl = e.target.closest('[data-habit-dec-today]');
+        if (decTodayEl) {
+          const id = decTodayEl.dataset.habitDecToday;
+          const habit = state.habits.find(h => h.id === id);
+          if (habit) {
+            const idx = getCurrentWeekdayIndex();
+            habit.days[idx] = Math.max(0, (habit.days[idx] || 0) - 1);
+            saveState();
+            renderAll();
+          }
+          return;
+        }
+
+        const delHabitEl = e.target.closest('[data-delete-habit]');
+        if (delHabitEl) {
+          const id = delHabitEl.dataset.deleteHabit;
+          state.habits = state.habits.filter(h => h.id !== id);
+          saveState();
+          renderAll();
+          showToast('Активность удалена');
+          return;
+        }
+
+        const delTxEl = e.target.closest('[data-delete-tx]');
+        if (delTxEl) {
+          const id = delTxEl.dataset.deleteTx;
+          state.piggy.transactions = state.piggy.transactions.filter(tx => tx.id !== id);
+          saveState();
+          renderAll();
+          showToast('Запись удалена');
+          return;
+        }
+      });
+
+      // Right-click on habit day cell decrements count
+      document.body.addEventListener('contextmenu', e => {
+        const habitDayEl = e.target.closest('[data-habit-day]');
+        if (habitDayEl) {
+          e.preventDefault();
+          const [id, dayStr] = habitDayEl.dataset.habitDay.split(':');
+          const dayIdx = parseInt(dayStr, 10);
+          const habit = state.habits.find(h => h.id === id);
+          if (habit) {
+            habit.days[dayIdx] = Math.max(0, (habit.days[dayIdx] || 0) - 1);
+            saveState();
+            renderAll();
+          }
+        }
+      });
+
+      // Export JSON Backup
+      document.getElementById('export-btn').addEventListener('click', () => {
+        const dataStr = JSON.stringify(state, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `personal-tracker-backup-${getTodayISO()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Резервная копия сохранена');
+      });
+
+      // Import JSON Backup
+      document.getElementById('import-input').addEventListener('change', e => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const imported = JSON.parse(ev.target.result);
+            if (imported && Array.isArray(imported.tasks) && Array.isArray(imported.habits) && imported.piggy) {
+              state = imported;
+              saveState();
+              renderAll();
+              showToast('Данные успешно загружены');
+            } else {
+              showToast('Неверный формат файла');
+            }
+          } catch (err) {
+            showToast('Ошибка чтения JSON');
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+
+      // Reset to demo state
+      document.getElementById('reset-btn').addEventListener('click', () => {
+        openConfirmModal(
+          'Сбросить все данные?',
+          'Текущие записи будут заменены начальными демонстрационными данными.',
+          () => {
+            state = getDefaultState();
+            saveState();
+            renderAll();
+            showToast('Данные сброшены');
+          }
+        );
+      });
+
+      renderAll();
+    });
+  </script>
+</body>
+</html>
